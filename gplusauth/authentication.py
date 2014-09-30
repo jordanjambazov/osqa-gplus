@@ -41,7 +41,9 @@ class GooglePlusAuthConsumer(AuthenticationConsumer):
         try:
             # Upgrade the authorization code into a credentials object
             oauth_flow = flow_from_clientsecrets(CLIENT_SECRETS_PATH, scope='')
-            oauth_flow.redirect_uri = 'http://localhost:8000/account/googleplus/done/'
+            oauth_flow.redirect_uri = '{0}/account/googleplus/done/'.format(
+                django_settings.APP_URL
+            )
             credentials = oauth_flow.step2_exchange(code)
         except FlowExchangeError:
             raise InvalidAuthentication("Could not exchange flows")
