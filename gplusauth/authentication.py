@@ -10,29 +10,59 @@ from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 
 from django.conf import settings as django_settings
-from forum.authentication.base import AuthenticationConsumer, ConsumerTemplateContext, InvalidAuthentication
+from forum.authentication.base import AuthenticationConsumer
+from forum.authentication.base import ConsumerTemplateContext
+from forum.authentication.base import InvalidAuthentication
 
-CLIENT_SECRETS_PATH = os.path.join(django_settings.SITE_SRC_ROOT, 'client_secrets.json')
-CLIENT_ID = json.loads(open(CLIENT_SECRETS_PATH, 'r').read())['web']['client_id']
+CLIENT_SECRETS_PATH = os.path.join(django_settings.SITE_SRC_ROOT,
+                                   'client_secrets.json')
+CLIENT_SECRETS = json.loads(open(CLIENT_SECRETS_PATH, 'r').read())
+CLIENT_ID = CLIENT_SECRETS['web']['client_id']
 
 
 class GooglePlusAuthConsumer(AuthenticationConsumer):
 
+    @staticmethod
+    def _generate_random_state():
+        """
+        Generates a random string with length of 32 symbols, used by the
+        Google+ API to prevent request forgery.
+        """
+        symbols = string.ascii_lowercase + string.digits
+        state = ''.join(random.choice(symbols) for _ in range(32))
+        return state
+
     def prepare_authentication_request(self, request, redirect_to):
-        state = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(32))
+        """
+        Prepares the Google+ authentication URL and adds needed parameters
+        to it, like scopes, the generated state, client ID, etc.
+        """
+        state = self._generate_random_state()
+        scopes = (
+            "https://www.googleapis.com/auth/plus.login",
+            "https://www.googleapis.com/auth/plus.profile.emails.read"
+        )
         request.session['gplus_state'] = state
         request_data = dict(
             redirect_uri="{0}{1}".format(django_settings.APP_URL, redirect_to),
-            scope="https://www.googleapis.com/auth/plus.login https://www.googleapis.com/auth/plus.profile.emails.read",
+            scope="  ".join(scopes),
             state=state,
             response_type="code",
             client_id=CLIENT_ID,
             access_type="offline"
         )
-        login_url = 'https://accounts.google.com/o/oauth2/auth?' + urllib.urlencode(request_data)
+        login_url = 'https://accounts.google.com/o/oauth2/auth?{0}'.format(
+            urllib.urlencode(request_data)
+        )
         return login_url
 
     def process_authentication_request(self, request):
+        """
+        Triggered after the Google+ authentication happened. Important
+        information from it is extracted, access token and association
+        keys are obtained, so that local authentication system could
+        process.
+        """
         request_state = request.GET['state']
         session_state = request.session['gplus_state']
         if request_state != session_state:
@@ -54,6 +84,10 @@ class GooglePlusAuthConsumer(AuthenticationConsumer):
         return assoc_key
 
     def get_user_data(self, assoc_key):
+        """
+        Returns user data, like username, email and real name. That data
+        is forwarded to the sign-up form.
+        """
         return {}
 
 
