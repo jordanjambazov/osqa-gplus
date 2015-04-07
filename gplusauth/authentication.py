@@ -15,7 +15,6 @@ from forum.authentication.base import ConsumerTemplateContext
 from forum.authentication.base import InvalidAuthentication
 
 from forum.models.user import AuthKeyUserAssociation
-import django.core.exceptions
 
 CLIENT_SECRETS_PATH = os.path.join(django_settings.SITE_SRC_ROOT,
                                    'client_secrets.json')
@@ -101,7 +100,7 @@ class GooglePlusAuthConsumer(AuthenticationConsumer):
             try:
                 old = AuthKeyUserAssociation.objects.get(key=openid,
                                                          provider="google")
-            except django.core.exceptions.DoesNotExist:
+            except AuthKeyUserAssociation.DoesNotExist:
                 pass
             else:
                 old.key = assoc_key
