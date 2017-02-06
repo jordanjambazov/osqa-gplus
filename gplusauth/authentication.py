@@ -14,8 +14,6 @@ from forum.authentication.base import AuthenticationConsumer
 from forum.authentication.base import ConsumerTemplateContext
 from forum.authentication.base import InvalidAuthentication
 
-from forum.models.user import AuthKeyUserAssociation
-
 CLIENT_SECRETS_PATH = os.path.join(django_settings.SITE_SRC_ROOT,
                                    'client_secrets.json')
 CLIENT_SECRETS = json.loads(open(CLIENT_SECRETS_PATH, 'r').read())
@@ -53,13 +51,6 @@ class GooglePlusAuthConsumer(AuthenticationConsumer):
             client_id=CLIENT_ID,
             access_type="offline"
         )
-
-        # Send also openid.realm to get the necessary data to convert from the
-        # old OpenID to Google+
-        realm = getattr(django_settings, 'OPENID_TRUST_ROOT',
-                        django_settings.APP_URL+'/')
-        request_data["openid.realm"] = realm
-
         login_url = 'https://accounts.google.com/o/oauth2/auth?{0}'.format(
             urllib.urlencode(request_data)
         )
@@ -90,23 +81,6 @@ class GooglePlusAuthConsumer(AuthenticationConsumer):
         assoc_key = credentials.id_token['sub']
         request.session["access_token"] = access_token
         request.session["assoc_key"] = assoc_key
-
-        # Convert old Google OpenID to Google+
-        openid = credentials.id_token['openid_id']
-        already_existing = AuthKeyUserAssociation.objects.filter(
-            key=assoc_key, provider="googleplus"
-        )
-        if already_existing.count() == 0:
-            try:
-                old = AuthKeyUserAssociation.objects.get(key=openid,
-                                                         provider="google")
-            except AuthKeyUserAssociation.DoesNotExist:
-                pass
-            else:
-                old.key = assoc_key
-                old.provider = "googleplus"
-                old.save()
-
         return assoc_key
 
     def get_user_data(self, assoc_key):
